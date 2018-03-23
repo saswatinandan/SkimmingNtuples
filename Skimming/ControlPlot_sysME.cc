@@ -629,12 +629,6 @@ int  main(int argc, char** argv) {
 			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*fake);
 			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso+"_nofake_weight",HH.M(),9,100,1000,weight*leading_weight*subleading_weight);
 			plotFill("pt_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.Pt(),100,100,1000,weight*leading_weight*subleading_weight*fake);
-			plotFill("deltapart1part2_with_"+title+"_be4_mass_cut"+tauiso,deltapart1part2,50,0.,5.,weight*leading_weight*subleading_weight*fake);
-			plotFill("deltapart1t1_with_"+title+"_be4_mass_cut"+tauiso,deltapart1t1,50,0.,5.,weight*leading_weight*subleading_weight*fake);
-			plotFill("deltapart1t2_with_"+title+"_be4_mass_cut"+tauiso,deltapart1t2,50,0.,5.,weight*leading_weight*subleading_weight*fake);
-			plotFill("deltapart2t1_with_"+title+"_be4_mass_cut"+tauiso,deltapart2t1,50,0.,5.,weight*leading_weight*subleading_weight*fake);
-			plotFill("deltapart2t2_with_"+title+"_be4_mass_cut"+tauiso,deltapart2t2,50,0.,5.,weight*leading_weight*subleading_weight*fake);
-			plotFill("InvariantMass_of_4_particle_exclusive_signal_with_"+title+tauiso,HH.M(),25,50,250,weight*leading_weight*subleading_weight*fake);
 			
 			for(unsigned int i=0; i<2; i++) {
 			  tau = (i==0) ? t1 : t2;
