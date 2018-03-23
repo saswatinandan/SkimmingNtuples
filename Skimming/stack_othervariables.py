@@ -102,7 +102,6 @@ def buildStackDict(histDict):
     stackDict['s'] = r.THStack()
 
     for iSample, iColor in defaultOrder:
-        scale = 1.0
         stackDict['s'].Add(histDict[iSample])
         histDict['bkg_'].Add(histDict[iSample])
     return stackDict
@@ -240,13 +239,7 @@ def xs_calculator(fileList = []):
           histDict['QCD multijet'].Add(hist1_data,1)    #### 
           print 'total # of events in QCD = ' , histDict['QCD multijet'].Integral()
 
-######don't need to go further  below #########
-##      for key in histDict :
- #         histDict[key] = histDict[key].Rebin(9,'',xbin)
- #     ifile = r.TFile('dataMoriondPU.root')
-  #    hist = ifile.Get('pileup')
-   #   hist.Scale(1/hist.Integral())
-    #  histDict['data_'].Add(hist,1)
+
       stackDict = buildStackDict(histDict)
       legendDict = buildLegendDict(histDict, (0.72, 0.48, 0.99, 0.86))
 
@@ -280,7 +273,7 @@ def xs_calculator(fileList = []):
       stackDict['s'].GetYaxis().SetTitleOffset(1.2)
       stackDict['s'].GetXaxis().SetLabelSize(100)
 
-      if l[var] == 'InvariantMass_of_4_particle_with_totCharge==0_in_tau1iso_tau2iso' or l[var] == 'InvariantMass_of_taumu_with_totCharge==0_in_tau1iso_tau2iso' :
+      '''if l[var] == 'InvariantMass_of_4_particle_with_totCharge==0_in_tau1iso_tau2iso' or l[var] == 'InvariantMass_of_taumu_with_totCharge==0_in_tau1iso_tau2iso' :
           signalfile = r.TFile('officialHH_gluglu_controlPlot.root')
           hist = signalfile.Get(l[var])
 #          hist.SetLineStyle(11)                                                                                                       
@@ -290,7 +283,7 @@ def xs_calculator(fileList = []):
           print 'Total # of events in HH = ', hist.Integral()
 #          hist.Scale(10)
           hist.Draw('same')
-          legendDict['T'].AddEntry(hist, 'Signal', 'l')
+          legendDict['T'].AddEntry(hist, 'Signal', 'l')'''
       histDict['bkg_'].Draw('E2 same')
       histDict['data_'].Draw('same PE')
       histDict['bkg_'].Draw('E2 same')
