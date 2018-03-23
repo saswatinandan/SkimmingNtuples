@@ -362,7 +362,7 @@ int  main(int argc, char** argv) {
 
       for  (int itau=0 ; itau < nTau; itau++) {
 	
-	bool antielemu = (Muon) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0 :
+	bool antielemu = (Muon) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0 :
 	  //((Electron) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0  : 
 	  ((Electron) ? tauByLooseMuonRejection3->at(itau) !=0  : tauByMVA6TightElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0);
 
@@ -608,7 +608,7 @@ int  main(int argc, char** argv) {
 		    for(unsigned int totchrg=0; totchrg<2; totchrg++) {
 		      if(!taupartcharge_[totchrg]) continue;
 		      std::string title = partCharge_[partchrg]+"_with_"+totcharge[totchrg];
-		      if(tau1match && tau2match && tau1iso_tau2iso && partcharge[1] && taupartcharge_[0]) {
+		      if(tau1match && tau2match && tau1iso_tau2iso && taupartcharge_[0]) {
 			plotFill("InvariantMass_of_4_particle_with_"+title+tauiso+"_"+systematic,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*fake);
 		      }
 		      if(isys ==0) {
