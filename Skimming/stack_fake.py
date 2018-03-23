@@ -5,14 +5,6 @@ import numpy
 from sys import argv, exit, stdout, stderr
 import math
 
-if len(argv) < 2:
-   print 'Usage:python xs_calculator_prefit.py DYCrossSection[optional]'
-
-if len(argv)>1:
-   FoundXS= numpy.array([argv[1]],dtype=float)
-else:
-   FoundXS=1.00
-
 histDict = {}
 variable = ['deno','neo']
 
@@ -86,12 +78,12 @@ def buildStackDict(histDict):
         histDict['bkg_'].Add(histDict[iSample])
     return stackDict
 
-def FillHisto(input, output, weight = 1.0):
+def FillHisto(input, output):
 #    print 'inFillHisto',input,'ou== ', output                                                                                                 
     for i in range(input.GetNbinsX()):
        currentValue = output.GetBinContent(i+1)
        currentError = output.GetBinError(i+1)
-       output.SetBinContent(i+1, currentValue+input.GetBinContent(i+1)*weight)
+       output.SetBinContent(i+1, currentValue+input.GetBinContent(i+1))
        output.SetBinError(i+1, math.sqrt((input.GetBinError(i+1))**2 + currentError**2))
 #    output.Scale(1/(input.Integral()))
 
@@ -150,12 +142,10 @@ def xs_calculator(fileList = []):
    #loop over all the samples                                                                                                                 
       for iFileName, iFileLocation in fileList:
          ifile = r.TFile(iFileLocation)
-         weight = 1.
-         tauWeight = 1.
 
          if ifile.Get(variable[i]) :
             print ifile
-            FillHisto(ifile.Get(variable[i]), histDict[iFileName], tauWeight)
+            FillHisto(ifile.Get(variable[i]), histDict[iFileName])
       stackDict = buildStackDict(histDict)
       legendDict = buildLegendDict(histDict, (0.65, 0.44, 0.92, 0.84))
 
