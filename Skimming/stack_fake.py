@@ -22,7 +22,7 @@ defaultOrder = [('WJets',  r.TColor.GetColor(100,182,232)),
 
 
 def buildHistDict(nbins,x_low,x_high):
-    print nbins
+
     histDict = {}
     for iSample, iColor in defaultOrder:
        name = iSample
@@ -73,7 +73,6 @@ def buildStackDict(histDict):
     stackDict['s'] = r.THStack()
 
     for iSample, iColor in defaultOrder:
-        scale = 1.0
         stackDict['s'].Add(histDict[iSample])
         histDict['bkg_'].Add(histDict[iSample])
     return stackDict
@@ -85,7 +84,6 @@ def FillHisto(input, output):
        currentError = output.GetBinError(i+1)
        output.SetBinContent(i+1, currentValue+input.GetBinContent(i+1))
        output.SetBinError(i+1, math.sqrt((input.GetBinError(i+1))**2 + currentError**2))
-#    output.Scale(1/(input.Integral()))
 
 def buildLegendDict(histDict, position):
     legendDict = {}
