@@ -567,6 +567,7 @@ void DY_fake(TH1F* h_deno, TH1F* h_neu, TTree* Run_Tree, bool Muon, std::string 
 
       //      if(tauPt->at(itau) > 20 && fabs(tauEta->at(itau)) < 2.3 && tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0 && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0 && tauByVLooseIsolationMVArun2v1DBoldDMwLT->at(itau) !=0)
       bool taupass = (Muon) ? (tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0) : (tauByMVA6TightElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0);
+      if(vec_tau.size() >1 && tauCharge->at(itau)*tauCharge->at(0) <0) continue;
       if(tauPt->at(itau) > 10 && fabs(tauEta->at(itau)) < 2.3 && taupass && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0) 
         vec_tau.push_back(itau);
     }
