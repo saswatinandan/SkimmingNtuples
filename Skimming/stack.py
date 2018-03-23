@@ -12,8 +12,6 @@ histDict = {}
 #variable =['pt_of_4_particle_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltam1t1_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltam1t2_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltat1t2_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltam1m2_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltam2t1_with_same_sign_muon_with_totCharge==0_be4_mass_cut','deltam2t2_with_same_sign_muon_with_totCharge==0_be4_mass_cut']
 variable = ['InvariantMass_of_4_particle_with_opposite_sign_part_with_totCharge==0_be4_mass_cut']
 #variable = ['InvariantMass_of_taumu']
-sys = ['_lumi','_mu','_tau','_','_pdf','_QCD','_zzTo4L','_ZH']
-systematic=['Up','Dn']
 f = r.TFile("QCD_bkg_OS_antiiso.root","recreate")
 ################################################                                                                                               
 # Sevreal Histograms are initiated/produced here                                                                                               
@@ -27,15 +25,6 @@ defaultOrder = [('WJets',  r.TColor.GetColor(100,182,232)),
                 ('Single Top', r.TColor.GetColor(230,90,115)),
                 ('WZ', r.TColor.GetColor(200, 2, 285)),
                 ('QCD multijet', r.TColor.GetColor(130,130,130))]
-
-def stat(hist) :
-
-    error =0
-    for ibin in range(hist.GetNbinsX()) :
-        error += hist.GetBinContent(ibin+1)**2
-        if hist.GetNbinsX() ==1 : error = hist.GetBinContent(ibin+1)
-    return math.sqrt(error)
-
 
 def buildHistDict(nbins,x_low,x_high):
 
@@ -210,7 +199,7 @@ def xs_calculator(fileList = []):
             histDict = buildHistDict(int(nbins),x_low,x_high)
             break
       if nbins == -999 : 
-          print 'nbins==-9999**********************'
+          print 'Histogram not found'
           continue
       hist1_data = r.TH1F('tau1_data', '', nbins, float(x_low),float(x_high))
       hist1_data.Sumw2()
@@ -268,8 +257,7 @@ def xs_calculator(fileList = []):
                      hist12_Mcnoweight.Add(hist12antiisonoweight)
 
          if hist :
-            statistical_error = stat(hist)
-            print ifile,'\t', hist.Integral(), 'statistical Error= ', statistical_error
+            print ifile,'\t', hist.Integral()
             FillHisto(hist, histDict[iFileName])
       if l[var] == variable[i] +'_in_tau1iso_tau2iso' :
           hist1_data.Add(hist1_Mc,-1) ##### subtract MC from data in 3 different histograms
@@ -293,8 +281,7 @@ def xs_calculator(fileList = []):
 
           histDict['QCD multijet'].Add(hist12_datanoweight,1)
           #histDict['QCD multijet'].Add(hist1_data,1)    #### 
-          statistical_error = stat(histDict['QCD multijet'])
-          print 'total # of events in QCD = ' , histDict['QCD multijet'].Integral(), 'statistical Error= ', statistical_error
+          print 'total # of events in QCD = ' , histDict['QCD multijet'].Integral()
 
 ######don't need to go further  below #########
       if nbins == -999 : continue
@@ -340,8 +327,7 @@ def xs_calculator(fileList = []):
           title = ['Radion300 1pb','Radion800 1pb']#,'Radion400 1pb']#,'Radion800 1pb']#,'Radion900']
           #title =['Radion900 1pb']
           '''for sig in range(len(histsig)) :
-              statistical_error = stat(histsig[sig])
-              print title[sig], '\t' , histsig[sig].Integral(), 'statistical Error= ', statistical_error
+              print title[sig], '\t' , histsig[sig].Integral()
               histsig[sig].Draw('HIST same')
               legendDict['T'].AddEntry(histsig[sig], title[sig], 'l')'''
 
@@ -431,7 +417,6 @@ def xs_calculator(fileList = []):
           histqcdshapesubtract = hist12_datanoweight.Clone('QCDshapesubtract')
           histQCDreal.Write()
           histdatamcsubtract.Write()
-          print histqcdshape.Integral(),'\t',histqcd.Integral(),'\t',histqcdshapesubtract.Integral()
                     
    f.Write()
    f.Close()
