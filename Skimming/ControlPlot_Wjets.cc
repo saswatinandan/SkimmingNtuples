@@ -202,7 +202,7 @@ int  main(int argc, char** argv) {
     TH1F * HistoPUMC= (TH1F *) PUMC->Get("pileup");
     HistoPUMC->Scale(1.0/HistoPUMC->Integral());
     corrpu = (TH1F*)HistoPUMC->Clone();
-    double f1(0), f2(0);
+
     for ( Int_t i = 0; i < nentries_wtn; i++) {
       // for ( Int_t i = 0; i < 10; i++) {
       
@@ -265,7 +265,7 @@ int  main(int argc, char** argv) {
       if(Muon) {
 
 	for  (int imu=0 ; imu < nMu; imu++){
-	  bool mupt = firstPart ? (muPt->at(imu) >26) : (muPt->at(imu) >25);
+	  bool mupt = firstPart ? (muPt->at(imu) >26) : (muPt->at(imu) >9);
 	  UShort_t id = (muIDbit->at(imu) >> 1 & 1);
 	  float IsoMu=muPFChIso->at(imu)/muPt->at(imu);
 	  if ( (muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu) )  > 0.0)
@@ -329,7 +329,7 @@ int  main(int argc, char** argv) {
 	  else if ( fabs (eleSCEta->at(iele)) >=  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
 	  else eleMVAId= false;
 	  
-	  if(elePt->at(iele) >15 && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.1) {
+	  if(elePt->at(iele) >15 && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25) {
 	    eleveto = true;
 	    break;
 	  }
@@ -394,52 +394,8 @@ int  main(int argc, char** argv) {
       }
 
       else {
-	part = "#mu_#ele";
-        for (int imuele=0; imuele<vec_muele.size(); ++imuele) {
-          double pt_  = (k==0) ? muPt->at(vec_muele[k]) : elePt->at(vec_muele[k]);
-	  pt.push_back(pt_);
-          double eta_ = (k==0) ? muEta->at(vec_muele[k]) : eleEta->at(vec_muele[k]);
-	  eta.push_back(eta_);
-          double phi_ = (k==0) ? muPhi->at(vec_muele[k]) : elePhi->at(vec_muele[k]);
-	  phi.push_back(phi_);
-          double ene_ = (k==0) ? muEn->at(vec_muele[k]) : eleEn->at(vec_muele[k]);
-	  ene.push_back(ene_);
-          double chrg_ = (k==0) ? muCharge->at(vec_muele[k]) : eleCharge->at(vec_muele[k]);
-	  chrg.push_back(chrg_);
-        }
       }
       
-      /*      bool charge(false), samesign(false);
-      charge = chrg[0]*chrg[1] >0;
-      samesign = charge ? true : false;
-      bool mucharge[2] = {!samesign, samesign};
-      bool zerojet = vec_tauiso.size() ==0;
-      bool onejet = vec_tauiso.size() ==1;
-      bool twojet = vec_tauiso.size() ==2;
-      bool jet[3] = {zerojet, onejet, twojet};
-      std::string Jet[3] = {"zero_tau_jet_region", "one_tau_jet_region", "two_tau_jet_region"};
-      
-      TLorentzVector m1,m2,M;
-      m1.SetPtEtaPhiE(pt[0],eta[0],phi[0],ene[0]);
-      m2.SetPtEtaPhiE(pt[1],eta[1],phi[1],ene[1]);
-      M= m1+m2;
-      
-      double leading_weight = 1;
-      double subleading_weight = 1;
-      double muonweight = 1;
-      h_preweight->Fill(weight);
-
-      if(!isData && Muon) {
-	leading_weight = scaleFactor(pt[0],eta[0]);
-	subleading_weight = scaleFactor(pt[1],eta[1]);
-	h_SF1->Fill(leading_weight);
-	h_SF2->Fill(subleading_weight);
-	muonweight = leading_weight*subleading_weight;
-	h_SF->Fill(muonweight);
-      }
-
-      h_postweight->Fill(muonweight);*/
-
       if(vec_tau.size() >1) {
 	
 	
@@ -503,15 +459,13 @@ int  main(int argc, char** argv) {
 	    TLorentzVector m1;
 	    
 	    for(int imu=0; imu<vec_muele.size(); imu++) {
-	      //	      deltaR = dR_(muEta->at(vec_muele[imu]),muPhi->at(vec_muele[imu]),tauEta->at(vec_tau[itau]),tauPhi->at(vec_tau[itau]));
+
 	      deltaR = dR_(eta[imu],phi[imu],tauEta->at(vec_tau[itau]),tauPhi->at(vec_tau[itau]));
 	      if(deltaR <0.5) continue;
 
-	      //	      deltaR = dR_(muEta->at(vec_muele[imu]),muPhi->at(vec_muele[imu]),tauEta->at(vec_tau[jtau]),tauPhi->at(vec_tau[jtau]));
 	      deltaR = dR_(eta[imu],phi[imu],tauEta->at(vec_tau[jtau]),tauPhi->at(vec_tau[jtau]));
 	      if(deltaR <0.5) continue;
 
-	      //	      m1.SetPtEtaPhiE(muPt->at(vec_muele[imu]),muEta->at(vec_muele[imu]),muPhi->at(vec_muele[imu]),muEn->at(vec_muele[imu]));
 	      m1.SetPtEtaPhiE(pt[imu],eta[imu],phi[imu],ene[imu]); 
 	      HH = T+m1;
 	      
