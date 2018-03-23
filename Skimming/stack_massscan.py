@@ -102,7 +102,6 @@ def buildStackDict(histDict):
     stackDict['s'] = r.THStack()
 
     for iSample, iColor in defaultOrder:
-        scale = 1.0
         stackDict['s'].Add(histDict[iSample])
         histDict['bkg_'].Add(histDict[iSample])
     return stackDict
@@ -153,11 +152,6 @@ def add_CMS():
     lumi.SetTextColor(    1 )
     lumi.AddText("CMS Preliminary")
     return lumi
-
-def chargemisid(fileList =[]) :
-
-    h_chargemisid = r.TH1F('','',nbins,x_low,x_high)
-    return h_chargemisid
 
 def xs_calculator(fileList = []):
 
