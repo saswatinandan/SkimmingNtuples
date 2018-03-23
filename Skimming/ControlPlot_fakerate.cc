@@ -566,9 +566,9 @@ void DY_fake(TH1F* h_deno, TH1F* h_neu, TTree* Run_Tree, bool Muon, std::string 
     for  (int itau=0 ; itau < nTau; itau++) {
 
       //      if(tauPt->at(itau) > 20 && fabs(tauEta->at(itau)) < 2.3 && tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0 && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0 && tauByVLooseIsolationMVArun2v1DBoldDMwLT->at(itau) !=0)
-      bool taupass = (Muon) ? (tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0) : (tauByMVA6TightElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0);
-      if(vec_tau.size() >1 && tauCharge->at(itau)*tauCharge->at(0) <0) continue;
-      if(tauPt->at(itau) > 10 && fabs(tauEta->at(itau)) < 2.3 && taupass && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0) 
+      bool taupass = (Muon) ? (tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0) : (tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0);
+      if(vec_tau.size() >0 && tauCharge->at(itau)*tauCharge->at(0) <0) continue;
+      if(tauPt->at(itau) > 20 && fabs(tauEta->at(itau)) < 2.3 && taupass && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0) 
         vec_tau.push_back(itau);
     }
 
@@ -616,11 +616,6 @@ void Wjets_fake(TH1F* h_deno, TH1F* h_neu, TTree* Run_Tree, bool Muon, std::stri
     float LumiWeight = 1;
     float GetGenWeight=1;
     float PUWeight = 1;
-
-    if(input.find("W1Jets") != string::npos) num_gen_jets=1;
-    if(input.find("W2Jets") != string::npos) num_gen_jets=2;
-    if(input.find("W3Jets") != string::npos) num_gen_jets=3;
-    if(input.find("W4Jets") != string::npos) num_gen_jets=4;
 
     if (!isData) {
       if (HistoTot) LumiWeight = weightCalc(HistoTot, input, num_gen_jets, W_events, DY_events);
@@ -689,7 +684,7 @@ void Wjets_fake(TH1F* h_deno, TH1F* h_neu, TTree* Run_Tree, bool Muon, std::stri
       }
     }
 
-    //    if(vec_muele.size() <2) continue;
+
     if(vec_muele.size() <1) continue; 
     //    if(muCharge->at(vec_muele[0]) * muCharge->at(vec_muele[1]) >0) continue;
     float MuMetTranverseMass= (Muon) ? TMass_FNew(muPt->at(vec_muele[0]), muPhi->at(vec_muele[0]), pfMET, pfMETPhi) : TMass_FNew(elePt->at(vec_muele[0]), elePhi->at(vec_muele[0]), pfMET, pfMETPhi);
@@ -754,7 +749,7 @@ void Wjets_fake(TH1F* h_deno, TH1F* h_neu, TTree* Run_Tree, bool Muon, std::stri
       //      if(muCharge->at(vec_muele[0])*tauCharge->at(itau) <0) continue;
       if(vec_tau.size() >0 && tauCharge->at(itau)*tauCharge->at(vec_tau[0]) <0) continue;
       bool antitau = (Muon) ? (tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0) : (tauByMVA6TightElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0);
-      if(tauPt->at(itau) > 10 && fabs(tauEta->at(itau)) < 2.3 && antitau && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0)
+      if(tauPt->at(itau) > 20 && fabs(tauEta->at(itau)) < 2.3 && antitau && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0)
 	vec_tau.push_back(itau);
     }
     
