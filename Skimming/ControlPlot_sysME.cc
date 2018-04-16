@@ -1,6 +1,5 @@
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//   Compiling the code:   ./Make.sh ZTT_XSection.cc
-//   Running the code:     ./ZTT_XSection.exe OutPut.root   Input.root
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//   Compiling the code:   ./MakRunning the code:     ./ZTT_XSection.exe OutPut.root   Input.root
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "TreeReader.h"
 #include "WeightCalculator.h"
@@ -14,17 +13,36 @@
 
 
 TFile * HZZ= TFile::Open("ScaleFactors_mu_Moriond2017_v2.root");
-TH2F* SF = (TH2F*) HZZ->Get("FINAL");
-double scaleFactor(double pt, double eta, bool debug=false);
+TH2F* SFmuon = (TH2F*) HZZ->Get("FINAL");
+TFile* egamareco = TFile::Open("egammaEffi.txt_EGM2D.root");
+TH2F* SFelereco = (TH2F*) egamareco->Get("EGamma_SF2D");
+TFile* egamamva = TFile::Open("egammaEffi.txt_EGM2D_mva.root");
+TH2F* SFelemva = (TH2F*) egamamva->Get("EGamma_SF2D");
+TFile * trimu = TFile::Open("triggerSummary_mumu.root");
+TH2F* SFtriggermu = (TH2F*) trimu->Get("scalefactor_eta2d_with_syst");
+TFile * triele = TFile::Open("triggerSummary_ee.root");
+TH2F* SFtriggerele = (TH2F*) triele->Get("scalefactor_eta2d_with_syst");
+
+double scaleFactor(double pt, double eta,TH2F* SF, bool debug = false);
 bool taumatch(double eta,double phi, std::vector<TLorentzVector>& taugen);
 std::pair<double,double> tauPtE(double taupt, double tauenergy,int sys);
 double fakeweight(double pt, string type);
 float chargemisid( double pt, double eta);
-
+pair<double, double> thrust(TLorentzVector m1, TLorentzVector m2, TLorentzVector t1, TLorentzVector t2, TLorentzVector met);
 int  main(int argc, char** argv) {
   using namespace std;
   bool debug(false);
   std::vector<string> input;
+  ScaleFactor * myScaleFactor_id_muon23 = new ScaleFactor();
+  ScaleFactor * myScaleFactor_id_muon8 = new ScaleFactor();
+  ScaleFactor * myScaleFactor_id_ele23 = new ScaleFactor();
+  ScaleFactor * myScaleFactor_id_ele12 = new ScaleFactor();
+  myScaleFactor_id_muon23->init_ScaleFactor("Muon_Mu23leg_2016BtoH_eff.root");
+  myScaleFactor_id_muon8->init_ScaleFactor("Muon_Mu8leg_2016BtoH_eff.root");
+  myScaleFactor_id_ele12->init_ScaleFactor("Electron_Ele12leg_eff.root");
+  myScaleFactor_id_ele23->init_ScaleFactor("Electron_Ele23leg_eff.root");
+
+
   for (int f = 1; f < argc; f++) {
     input.push_back(*(argv + f));
 
@@ -66,7 +84,7 @@ int  main(int argc, char** argv) {
     output.erase(0,str+1);
     size_t root = output.find(".root");
     output.erase(root);
-    output += "_controlPlot"+input[0]+"noEleRejection.root";
+    output += "_controlPlot"+input[0]+".root";
     cout << "\n\n\n OUTPUT NAME IS:    " << output << endl;     //PRINTING THE OUTPUT FILE NAME
     TFile *fout = TFile::Open(output.c_str(), "RECREATE");
     TH1F* h_musize = new TH1F("musize","musize",10,0,10);
@@ -223,15 +241,15 @@ int  main(int argc, char** argv) {
       if (i % 1000 == 0) fprintf(stdout, "\r  Processed events: %8d of %8d ", i, nentries_wtn);
 
       if(!isPVGood) continue;
-      bool mutrigger = (HLTEleMuX >> 14 & 1) || (HLTEleMuX >> 15 & 1);
-      bool eletrigger = (HLTEleMuX >> 5 & 1);
-      bool mueletrigger = ((HLTEleMuX >> 23 & 1) || (HLTEleMuX >> 25 & 1)) && (!(HLTEleMuX >> 14 & 1) && !(HLTEleMuX >> 15 & 1)) && (!(HLTEleMuX >> 5 & 1));
+      bool mutrigger = (HLTEleMuX >> 14 & 1) || (HLTEleMuX >> 15 & 1) || (HLTEleMuX >> 19 & 1) || (HLTEleMuX >> 20 & 1);
+      bool eletrigger = (HLTEleMuX >> 5 & 1) || (HLTEleMuX >> 0 & 1);
+      bool mueletrigger = ((HLTEleMuX >> 23 & 1) || (HLTEleMuX >> 25 & 1)) || (HLTEleMuX >> 19 & 1) || (HLTEleMuX >> 20 & 1) || (HLTEleMuX >> 0 & 1);
       bool PassTrigger =   (Muon) ? mutrigger : ( Electron ? eletrigger : mueletrigger);
       if(!PassTrigger) continue;                                       
 
       int count_bjet(0);
       for (int ijet= 0 ; ijet < nJet ; ijet++){
-	if (jetPt->at(ijet) > 20 && fabs(jetEta->at(ijet)) < 2.5 && jetCSV2BJetTags->at(ijet) > 0.800){
+	if (jetPt->at(ijet) > 20 && fabs(jetEta->at(ijet)) < 2.5 && jetCSV2BJetTags->at(ijet) > 0.8484) { //0.5426){ ///0.8484
 	  count_bjet +=1;
 	  break;
 	}
@@ -241,6 +259,7 @@ int  main(int argc, char** argv) {
       float LumiWeight = 1;
       float GetGenWeight=1;
       float PUWeight = 1;
+      float tauSF = (!isData) ? 0.99 : 1;
 
       if (!isData) {
 	if (HistoTot) LumiWeight = weightCalc(HistoTot, input[k], num_gen_jets, W_events, DY_events);
@@ -293,54 +312,13 @@ int  main(int argc, char** argv) {
 	    firstPart = false;
 	    vec_muele.push_back(imu);
 	  }
-	}	
-      }
-      else if (Electron) {
-
-	for (int iele = 0; iele < nEle; ++iele) {
-
-	  bool elept = (firstPart) ? (elePt->at(iele) >24) : (elePt->at(iele) >13);
-
-	  float IsoEle=elePFChIso->at(iele)/elePt->at(iele);
-	  if ( (elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))  > 0.0)
-	    IsoEle= (elePFChIso->at(iele) + elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))/elePt->at(iele);
-
-	  bool eleMVAId= false;
-	  if (fabs (eleSCEta->at(iele)) <= 0.8 && eleIDMVA->at(iele) > 0.837) eleMVAId= true;
-	  else if (fabs (eleSCEta->at(iele)) >  0.8 &&fabs (eleSCEta->at(iele)) <=  1.5 && eleIDMVA->at(iele) > 0.715) eleMVAId= true;
-	  else if ( fabs (eleSCEta->at(iele)) >=  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
-	  else eleMVAId= false;
-
-	  bool elecharge = eleChargeConsistent->at(iele) || ele2ndChargeConsistent->at(iele);
-	  if(elept && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25 && elecharge) {
-            firstPart = false;
-            vec_muele.push_back(iele);
-          }
-        }
-      }
-
-      else {
-	bool mupt24(false);
-	for  (int imu=0 ; imu < nMu; imu++) {
-          bool mupt = (muPt->at(imu) >24) || (muPt->at(imu) >9);
-	  //	  mupt24 = (imu==0 && muPt->at(imu) >24);
-          UShort_t id = (muIDbit->at(imu) >> 1 & 1);
-          float IsoMu=muPFChIso->at(imu)/muPt->at(imu);
-          if ( (muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu) )  > 0.0)
-            IsoMu= ( muPFChIso->at(imu) + muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu))/muPt->at(imu);
-	  bool mucharge = ((muBestTrkPtError->at(imu)/muBestTrkPt->at(imu)) <0.2);
-          if(mupt && id && fabs(muEta->at(imu)) <2.4 && IsoMu <0.3 && mucharge) {
-	    mupt24 = (vec_muele.size()==0 && muPt->at(imu) >24);
-            vec_muele.push_back(imu);
-          }
-        }
-	
+	}
 	musize = vec_muele.size();
 
 	for (int iele = 0; iele < nEle; ++iele) {
-
-          bool elept = (mupt24) ? (elePt->at(iele) >9) : (elePt->at(iele) >24);
-
+	  
+          bool elept = (elePt->at(iele) >13);
+	  
           float IsoEle=elePFChIso->at(iele)/elePt->at(iele);
           if ( (elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))  > 0.0)
             IsoEle= (elePFChIso->at(iele) + elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))/elePt->at(iele);
@@ -348,37 +326,115 @@ int  main(int argc, char** argv) {
           bool eleMVAId= false;
           if (fabs (eleSCEta->at(iele)) <= 0.8 && eleIDMVA->at(iele) > 0.837) eleMVAId= true;
           else if (fabs (eleSCEta->at(iele)) >  0.8 &&fabs (eleSCEta->at(iele)) <=  1.5 && eleIDMVA->at(iele) > 0.715) eleMVAId= true;
-          else if ( fabs (eleSCEta->at(iele)) >  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
+          else if ( fabs (eleSCEta->at(iele)) >=  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
           else eleMVAId= false;
-	  bool elecharge = eleChargeConsistent->at(iele) || ele2ndChargeConsistent->at(iele);
-          if(elept && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25 && elecharge) {
+
+          if(elept && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25) {
             vec_muele.push_back(iele);
+	    break;
           }
-        }
+	}
       }
+	
+      else if (Electron) {
+	
+	for (int iele = 0; iele < nEle; ++iele) {
+	  
+	  bool elept = (firstPart) ? (elePt->at(iele) >24) : (elePt->at(iele) >13);
+	  
+	  float IsoEle=elePFChIso->at(iele)/elePt->at(iele);
+	  if ( (elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))  > 0.0)
+	    IsoEle= (elePFChIso->at(iele) + elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))/elePt->at(iele);
+	  
+	  bool eleMVAId= false;
+	  if (fabs (eleSCEta->at(iele)) <= 0.8 && eleIDMVA->at(iele) > 0.837) eleMVAId= true;
+	  else if (fabs (eleSCEta->at(iele)) >  0.8 &&fabs (eleSCEta->at(iele)) <=  1.5 && eleIDMVA->at(iele) > 0.715) eleMVAId= true;
+	  else if ( fabs (eleSCEta->at(iele)) >=  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
+	  else eleMVAId= false;
+	  
+	  bool elecharge = eleChargeConsistent->at(iele) || ele2ndChargeConsistent->at(iele);
+	  if(elept && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25 && elecharge) {
+	    firstPart = false;
+	    vec_muele.push_back(iele);
+	  }
+	}
+	musize = vec_muele.size();
+	for  (int imu=0 ; imu < nMu; imu++){
+	  bool mupt = (muPt->at(imu) >9);
+	  UShort_t id = (muIDbit->at(imu) >> 1 & 1);
+	  float IsoMu=muPFChIso->at(imu)/muPt->at(imu);
+	  if ( (muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu) )  > 0.0)
+	    IsoMu= ( muPFChIso->at(imu) + muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu))/muPt->at(imu);
+	  
+	  if(mupt && id && fabs(muEta->at(imu)) <2.4 && IsoMu <0.3) {
+	    vec_muele.push_back(imu);
+	    break;
+	  }
+	}
+      }
+      
+      else {
+	bool mupt24(false);
+	
+	for  (int imu=0 ; imu < nMu; imu++) {
+	  bool mupt = (muPt->at(imu) >24) || (muPt->at(imu) >9);
+	  //	  mupt24 = (imu==0 && muPt->at(imu) >24);
+	  UShort_t id = (muIDbit->at(imu) >> 1 & 1);
+	  float IsoMu=muPFChIso->at(imu)/muPt->at(imu);
+	  if ( (muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu) )  > 0.0)
+	    IsoMu= ( muPFChIso->at(imu) + muPFNeuIso->at(imu) + muPFPhoIso->at(imu) - 0.5* muPFPUIso->at(imu))/muPt->at(imu);
+	  bool mucharge = ((muBestTrkPtError->at(imu)/muBestTrkPt->at(imu)) <0.2);
+	  if(mupt && id && fabs(muEta->at(imu)) <2.4 && IsoMu <0.3 && mucharge) {
+	    mupt24 = (vec_muele.size()==0 && muPt->at(imu) >24);
+	      vec_muele.push_back(imu);
+	  }
+	}
+	
+	musize = vec_muele.size();
+	
+	for (int iele = 0; iele < nEle; ++iele) {
+	  
+	  bool elept = (mupt24) ? (elePt->at(iele) >9) : (elePt->at(iele) >24);
+	  
+	  float IsoEle=elePFChIso->at(iele)/elePt->at(iele);
+	  if ( (elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))  > 0.0)
+	    IsoEle= (elePFChIso->at(iele) + elePFNeuIso->at(iele) + elePFPhoIso->at(iele) - 0.5* elePFPUIso->at(iele))/elePt->at(iele);
+	  
+	  bool eleMVAId= false;
+	  if (fabs (eleSCEta->at(iele)) <= 0.8 && eleIDMVA->at(iele) > 0.837) eleMVAId= true;
+	  else if (fabs (eleSCEta->at(iele)) >  0.8 &&fabs (eleSCEta->at(iele)) <=  1.5 && eleIDMVA->at(iele) > 0.715) eleMVAId= true;
+	  else if ( fabs (eleSCEta->at(iele)) >  1.5 && eleIDMVA->at(iele) > 0.357 ) eleMVAId= true;
+	  else eleMVAId= false;
+	  bool elecharge = eleChargeConsistent->at(iele) || ele2ndChargeConsistent->at(iele);
+	  if(elept && eleMVAId && fabs(eleEta->at(iele)) <2.5 && IsoEle <0.25 && elecharge) {
+	    vec_muele.push_back(iele);
+          }
+	}
+      }
+
+      if((Muon || Electron) && (musize <2 || vec_muele.size()>musize)) continue;
+      if(!Muon && !Electron && vec_muele.size() <2) continue;
 
       double tauESUp = 1.03;
       double tauESDn = 0.97;
-
+	
       for  (int itau=0 ; itau < nTau; itau++) {
 	
 	bool antielemu = (Muon) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0 :
 	  //((Electron) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0  : 
-	  ((Electron) ? tauByLooseMuonRejection3->at(itau) !=0  : tauByMVA6TightElectronRejection->at(itau) !=0 && tauByTightMuonRejection3->at(itau) !=0);
-
+	  ((Electron) ? tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0  : tauByMVA6LooseElectronRejection->at(itau) !=0 && tauByLooseMuonRejection3->at(itau) !=0);
+	
 	if(fabs(tauEta->at(itau)) < 2.3 && antielemu && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0) {
 	  if(tauPt->at(itau) >20) vec_tauNor.push_back(itau);
 	  if(tauPt->at(itau)*tauESUp >20) vec_tauUp.push_back(itau);
-          if(tauPt->at(itau)*tauESDn >20) vec_tauDn.push_back(itau);
+	  if(tauPt->at(itau)*tauESDn >20) vec_tauDn.push_back(itau);
 	}
-
+	
 	if(tauPt->at(itau) >20 && fabs(tauEta->at(itau)) < 2.3 && antielemu && taupfTausDiscriminationByDecayModeFinding->at(itau) !=0 && 
 	   tauByLooseIsolationMVArun2v1DBoldDMwLT->at(itau) !=0)
-          vec_tauiso.push_back(itau);
+	  vec_tauiso.push_back(itau);
       }
       
-      if(vec_muele.size()<2) continue;
-
       if (Muon) {
 	for (int imu=0; imu<vec_muele.size(); ++imu) {
 	  pt.push_back(muPt->at(vec_muele[imu]));
@@ -396,28 +452,29 @@ int  main(int argc, char** argv) {
 	  chrg.push_back(eleCharge->at(vec_muele[iele]));
 	}
       }
-
+	
       else {
-        for (int imuele=0; imuele<vec_muele.size(); ++imuele) {
-          double pt_  = (imuele < musize) ? muPt->at(vec_muele[imuele]) : elePt->at(vec_muele[imuele]);
+	for (int imuele=0; imuele<vec_muele.size(); ++imuele) {
+	  double pt_  = (imuele < musize) ? muPt->at(vec_muele[imuele]) : elePt->at(vec_muele[imuele]);
 	  pt.push_back(pt_);
-          double eta_ = (imuele < musize) ? muEta->at(vec_muele[imuele]) : eleEta->at(vec_muele[imuele]);
+	  double eta_ = (imuele < musize) ? muEta->at(vec_muele[imuele]) : eleEta->at(vec_muele[imuele]);
 	  eta.push_back(eta_);
-          double phi_ = (imuele < musize) ? muPhi->at(vec_muele[imuele]) : elePhi->at(vec_muele[imuele]);
+	  double phi_ = (imuele < musize) ? muPhi->at(vec_muele[imuele]) : elePhi->at(vec_muele[imuele]);
 	  phi.push_back(phi_);
-          double ene_ = (imuele < musize) ? muEn->at(vec_muele[imuele]) : eleEn->at(vec_muele[imuele]);
+	  double ene_ = (imuele < musize) ? muEn->at(vec_muele[imuele]) : eleEn->at(vec_muele[imuele]);
 	  ene.push_back(ene_);
-          double chrg_ = (imuele < musize) ? muCharge->at(vec_muele[imuele]) : eleCharge->at(vec_muele[imuele]);
-	  chrg.push_back(chrg_);
-        }
+	  double chrg_ = (imuele < musize) ? muCharge->at(vec_muele[imuele]) : eleCharge->at(vec_muele[imuele]);
+	    chrg.push_back(chrg_);
+	}
       }
+	
+      double leading_weight = (isData) ? 1 : ((type == "Muon") ? scaleFactor(pt[0],eta[0],SFmuon,true) : scaleFactor(pt[0],eta[0],SFelereco,true)*scaleFactor(pt[0],eta[0],SFelemva,true));
+      double subleading_weight = (isData) ? 1 : ((type == "Muon") ? scaleFactor(pt[1],eta[1],SFmuon,true) : scaleFactor(pt[1],eta[1],SFelereco,true)*scaleFactor(pt[1],eta[1],SFelemva,true));
+      double muonweight = leading_weight*subleading_weight;
+      double triggerweight(1);
       
-
-      double leading_weight = 1;
-      double subleading_weight = 1;
-      double muonweight = 1;
       bool charge(false), samesign(false);
-
+      
       if(Muon || Electron) {
 	std::string part = (Muon) ? "#mu_" : "#ele_";
 	charge = chrg[0]*chrg[1] >0;
@@ -442,7 +499,7 @@ int  main(int argc, char** argv) {
 	    plotFill("pt_distribution_of_SubLeading_"+part+title+"_with_mass_20-200GeV",pt[1],50,0,100,weight*subleading_weight);
 	    plotFill("eta_distribution_of_Leading_"+part+title+"_with_mass_20-200GeV",eta[0],20,-2.4,2.4,weight*leading_weight);
 	    plotFill("eta_distribution_of_SubLeading_"+part+title+"_with_mass_20-200GeV",eta[1],20,-2.4,2.4,weight*subleading_weight);
-	  }
+	    }
 	  
 	  if(M.M() >=60 && M.M() <=120) {
 	    plotFill("InvariantMass_of_"+part+"pair_with_" +title+"_with_mass_60-120GeV",M.M(),30,60,120,weight*muonweight);
@@ -458,42 +515,42 @@ int  main(int argc, char** argv) {
 	  }
 	}
       }
-
+      
       for(unsigned int imc=0; imc<nMC; imc++) {
-
+	
 	if(mcHadronPt->at(imc) < 0) continue;
 	taugen_.SetPtEtaPhiE(mcHadronPt->at(imc),mcHadronEta->at(imc),mcHadronPhi->at(imc),mcHadronE->at(imc));
 	taugen.push_back(taugen_);
       }
-
-
+      
+      
       for(unsigned int isys=0; isys<3; isys++) {
-	
+	  
 	vec_tau = (isys==0) ? vec_tauNor : ((isys==1) ? vec_tauUp : vec_tauDn);
 	std::string systematic = (isys==0) ? "Nominal" : ((isys==1) ? "Up" : "Dn");
-
+	
 	if(vec_tau.size() >1) {
 	  
 	  for(unsigned int itau=0; itau<vec_tau.size(); itau++) {
 	    
 	    std::pair<double,double> pte1 = tauPtE(tauPt->at(vec_tau[itau]), tauEnergy->at(vec_tau[itau]),isys);
-            t1.SetPtEtaPhiE(pte1.first,tauEta->at(vec_tau[itau]),tauPhi->at(vec_tau[itau]),pte1.second);
-
+	    t1.SetPtEtaPhiE(pte1.first,tauEta->at(vec_tau[itau]),tauPhi->at(vec_tau[itau]),pte1.second);
+	    
 	    bool tau1match(false);
 	    if(taugen.size() !=0) {
 	      for(unsigned int igentau=0; igentau<taugen.size(); igentau++) {
-		if(t1.DeltaR(taugen[igentau]) <0.5) {
-		  tau1match = true;
-		  break;
-		}
+		  if(t1.DeltaR(taugen[igentau]) <0.5) {
+		    tau1match = true;
+		    break;
+		  }
 	      }
 	    }
 	    
 	    for(unsigned int jtau=itau+1; jtau<vec_tau.size(); jtau++) {
 	      
 	      std::pair<double,double> pte2 = tauPtE(tauPt->at(vec_tau[jtau]), tauEnergy->at(vec_tau[jtau]),isys);
-              t2.SetPtEtaPhiE(pte2.first,tauEta->at(vec_tau[jtau]),tauPhi->at(vec_tau[jtau]),pte2.second);
-
+	      t2.SetPtEtaPhiE(pte2.first,tauEta->at(vec_tau[jtau]),tauPhi->at(vec_tau[jtau]),pte2.second);
+		
 	      bool tau2match(false);
 	      if(taugen.size() !=0) {
 		for(unsigned int igentau=0; igentau<taugen.size(); igentau++) {
@@ -505,14 +562,14 @@ int  main(int argc, char** argv) {
 	      }
 
 	      float deltat1t2= t1.DeltaR(t2);
-	      if(deltat1t2 <0.5) continue;
-	    
+	      if(deltat1t2 <0.3) continue;
+	      
 	      bool tau1antiiso = (tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) ==0 &&
 				  tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[jtau]) !=0
 				  );
 	      
 	      bool tau2antiiso = (tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[jtau]) ==0 &&
-				  tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) !=0
+				    tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) !=0
 				  );
 	      
 	      bool tau1antiisotau2antiiso = (tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) ==0 &&
@@ -522,11 +579,11 @@ int  main(int argc, char** argv) {
 	      bool tau1iso_tau2iso = (tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) !=0 && tauByLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[jtau]) !=0);
 	      
 	      bool tau1VLiso_tau2VLiso = (tauByVLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[itau]) !=0 && tauByVLooseIsolationMVArun2v1DBoldDMwLT->at(vec_tau[jtau]) !=0);
-
-              string tauvliso;
-              if(tau1VLiso_tau2VLiso) tauvliso = "_in_tau1VLiso_tau2VLiso";
-
-
+	      
+	      string tauvliso;
+	      if(tau1VLiso_tau2VLiso) tauvliso = "_in_tau1VLiso_tau2VLiso";
+	      
+	      
 	      double fake(1),fake1(1),fake2(1), fake12(1);
 	      
 	      if(tau1antiiso) {
@@ -548,28 +605,27 @@ int  main(int argc, char** argv) {
 	      }
 	      
 	      if(!tau1antiiso && !tau2antiiso && !tau1iso_tau2iso && !tau1antiisotau2antiiso && !tau1VLiso_tau2VLiso) continue;
-
+	      
 	      std::string tauiso = (tau1antiiso) ? "_in_tau1anti_iso" :
-                (tau2antiiso ? "_in_tau2anti_iso" :
-                 (tau1iso_tau2iso ? "_in_tau1iso_tau2iso" :
-                  (tau1antiisotau2antiiso ? "_in_tau1antiso_tau2antiiso" : "_in_tau1VLiso_tau2VLiso")));
-
+		(tau2antiiso ? "_in_tau2anti_iso" :
+		 (tau1iso_tau2iso ? "_in_tau1iso_tau2iso" :
+		  (tau1antiisotau2antiiso ? "_in_tau1antiso_tau2antiiso" : "_in_tau1VLiso_tau2VLiso")));
+	      
 	      
 	    
 	      T= t1+t2;
-
+	      
 	      charge = tauCharge->at(vec_tau[itau])*tauCharge->at(vec_tau[jtau]) >0;
 	      samesign = charge ? true : false;
 	      bool taucharge[2] = {!samesign, samesign};
-
+	      
 	      unsigned int iend = (Muon || Electron) ? vec_muele.size() : musize;
 	      for(unsigned int ipart=0; ipart<iend; ipart++) {
-		
+		  
 		if((Muon && pt[ipart] <=18) || (Electron && pt[ipart] <=24)) continue;
 		part1.SetPtEtaPhiE(pt[ipart],eta[ipart],phi[ipart],ene[ipart]);
-		//		if(!isData) leading_weight = scaleFactor(pt[imuele],eta[imuele]);
-		leading_weight = 1.;
-
+		if(!isData)  leading_weight = (type == "Muon" || type == "MuElectron") ? scaleFactor(pt[ipart],eta[ipart],SFmuon,true) : scaleFactor(pt[ipart],eta[ipart],SFelereco,true)*scaleFactor(pt[ipart],eta[ipart],SFelemva,true);
+		
 		float deltapart1t1 = part1.DeltaR(t1);
 		if(deltapart1t1 <0.3) continue;
 		float deltapart1t2= part1.DeltaR(t2);
@@ -577,68 +633,90 @@ int  main(int argc, char** argv) {
 		
 		unsigned int jstart = (Muon || Electron) ? ipart+1 : musize;
 		for(unsigned int jpart=jstart; jpart<vec_muele.size(); jpart++) {
-		
+		  
 		  if(!Muon && !Electron && pt[ipart] <=24 && pt[jpart] <=24) continue;
 		  part2.SetPtEtaPhiE(pt[jpart],eta[jpart],phi[jpart],ene[jpart]);
-
+		  
 		  float deltapart1part2 = part1.DeltaR(part2);
 		  if(deltapart1part2 <0.3) continue;
 		  float deltapart2t1= part2.DeltaR(t1);
 		  if(deltapart2t1 <0.3) continue;
 		  float deltapart2t2 = part2.DeltaR(t2);
-		   if(deltapart2t2 <0.3) continue;
+		  if(deltapart2t2 <0.3) continue;
 		  
-		  //if(!isData) subleading_weight = scaleFactor(pt[jmuele],eta[jmuele]);
-		  subleading_weight = 1.;
+		  if(!isData) {
+		    subleading_weight = (type == "Muon") ? scaleFactor(pt[jpart],eta[jpart],SFmuon,true) : scaleFactor(pt[jpart],eta[jpart],SFelereco,true)*scaleFactor(pt[jpart],eta[jpart],SFelemva,true);
+		    if(type != "MuElectron") {
+		      triggerweight = (type == "Muon") ? scaleFactor(fabs(eta[ipart]),fabs(eta[jpart]),SFtriggermu) : scaleFactor(fabs(eta[ipart]),fabs(eta[jpart]),SFtriggerele);
+		      }
+		    else {
+		      float sfmu23leg = myScaleFactor_id_muon23->get_ScaleFactor(pt[ipart],fabs(eta[ipart]));
+		      float sfmu8leg = myScaleFactor_id_muon8->get_ScaleFactor(pt[ipart],fabs(eta[ipart]));
+		      float sfele23leg = myScaleFactor_id_ele23->get_ScaleFactor(pt[jpart],fabs(eta[jpart]));
+		      float sfele12leg = myScaleFactor_id_ele12->get_ScaleFactor(pt[jpart],fabs(eta[jpart]));
+			triggerweight = sfmu23leg*sfele12leg + sfmu8leg*sfele23leg - (sfmu23leg*sfele23leg);
+		    }
+		  }
+		  
 		  ME = part1+part2;
 		  HH = T+ME;
 		  
 		  charge = chrg[ipart]*chrg[jpart] >0;
 		  samesign = charge ? true : false;
 		  bool partcharge[2] = {!samesign, samesign};
-
+		  
 		  bool taupartCharge;
 		  taupartCharge = chrg[ipart]+chrg[jpart] + tauCharge->at(vec_tau[itau])+tauCharge->at(vec_tau[jtau]) ==0;
 		  bool taupartcharge_[2];
 		  taupartcharge_[0] = taupartCharge ? true : false;
 		  taupartcharge_[1] = !taupartCharge ;
-
+		  
 		  for(unsigned int partchrg=0; partchrg<2; partchrg++) {
 		    if(!partcharge[partchrg]) continue;
 		    for(unsigned int totchrg=0; totchrg<2; totchrg++) {
 		      if(!taupartcharge_[totchrg]) continue;
 		      std::string title = partCharge_[partchrg]+"_with_"+totcharge[totchrg];
 		      if(tau1match && tau2match && tau1iso_tau2iso && taupartcharge_[0]) {
-			plotFill("InvariantMass_of_4_particle_with_"+title+tauiso+"_"+systematic,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*fake);
+			plotFill("InvariantMass_of_4_particle_with_"+title+tauiso+"_"+systematic,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
 		      }
 		      if(isys ==0) {
 			if(tauvliso =="_in_tau1VLiso_tau2VLiso") {
-                          plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauvliso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight);
+			  plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauvliso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF);
 			  if(tauvliso ==tauiso) continue;
-                        }
-			plotFill("InvariantMass_of_tau_pair_with_"+title+tauiso,T.M(),6,50,110,weight*fake);
-			plotFill("pt_distribution_of_Leading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[itau]),25,0,150,weight*fake);
-			plotFill("pt_distribution_of_SubLeading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[jtau]),25,0,150,weight*fake);
-			plotFill("eta_distribution_of_Leading_#tau_with_"+title+tauiso,tauEta->at(vec_tau[itau]),10,-2.4,2.4,weight*fake);
-			plotFill("eta_distribution_of_SubLeading_#tau_with_"+title+tauiso,tauEta->at(vec_tau[jtau]),10,-2.4,2.4,weight*fake);
-			plotFill("InvariantMass_of_lepton_pair_with_"+title+tauiso,ME.M(),6,60,120,weight*fake);
-			plotFill("pt_distribution_of_Leading_lepton_with_"+title+tauiso,pt[ipart],15,0,150,weight*fake);
-			plotFill("pt_distribution_of_SubLeading_lepton_with_"+title+tauiso,pt[jpart],15,0,150,weight*fake);
-			plotFill("eta_distribution_of_Leading_lepton_with_"+title+tauiso,eta[ipart],10,-2.4,2.4,weight*fake);
-			plotFill("eta_distribution_of_SubLeading_lepton_with_"+title+tauiso,eta[jpart],10,-2.4,2.4,weight*fake);
-			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*fake);
-			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso+"_nofake_weight",HH.M(),9,100,1000,weight*leading_weight*subleading_weight);
-			plotFill("pt_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.Pt(),100,100,1000,weight*leading_weight*subleading_weight*fake);
+			  }
+			if(tau1iso_tau2iso && taupartcharge_[0]) {
+			  TLorentzVector met;
+			  met.SetPtEtaPhiE(pfMET,0,pfMETPhi,0);
+			  pair<double,double> metcompo = thrust(part1,part2,t1,t2,met);
+			  plotFill("metparallel"+title+tauiso,metcompo.first,10,0,100,weight*triggerweight*tauSF*tauSF*fake);
+			  plotFill("metperpendi"+title+tauiso,metcompo.second,10,0,100,weight*triggerweight*tauSF*tauSF*fake);
+			}
+			plotFill("InvariantMass_of_tau_pair_with_"+title+tauiso,T.M(),6,50,110,weight*triggerweight*tauSF*tauSF*fake);
+			plotFill("pt_distribution_of_Leading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[itau]),25,0,150,weight*triggerweight*tauSF*fake);
+			plotFill("pt_distribution_of_SubLeading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[jtau]),25,0,150,weight*triggerweight*tauSF*fake);
+			plotFill("eta_distribution_of_Leading_#tau_with_"+title+tauiso,tauEta->at(vec_tau[itau]),10,-2.4,2.4,weight*triggerweight*tauSF*fake);
+			plotFill("eta_distribution_of_SubLeading_#tau_with_"+title+tauiso,tauEta->at(vec_tau[jtau]),10,-2.4,2.4,weight*triggerweight*tauSF*fake);
+			plotFill("InvariantMass_of_lepton_pair_with_"+title+tauiso,ME.M(),6,60,120,weight*leading_weight*subleading_weight*triggerweight*fake);
+			plotFill("pt_distribution_of_Leading_lepton_with_"+title+tauiso,pt[ipart],15,0,150,weight*leading_weight*triggerweight*fake);
+			plotFill("pt_distribution_of_SubLeading_lepton_with_"+title+tauiso,pt[jpart],15,0,150,weight*subleading_weight*triggerweight*fake);
+			plotFill("eta_distribution_of_Leading_lepton_with_"+title+tauiso,eta[ipart],10,-2.4,2.4,weight*leading_weight*triggerweight*fake);
+			plotFill("eta_distribution_of_SubLeading_lepton_with_"+title+tauiso,eta[jpart],10,-2.4,2.4,weight*subleading_weight*triggerweight*fake);
+			if(partcharge[0] && (ME.M() <70 || ME.M() > 110) && pfMET >20) {
+			  plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut_excluding_DY"+tauiso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
+			  plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut_excluding_DY"+tauiso+"_nofake_weight",HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF);
+			}
+			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
+			plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso+"_nofake_weight",HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF);
+			plotFill("pt_of_4_particle_with_"+title+"_be4_mass_cut"+tauiso,HH.Pt(),100,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
 			
 			for(unsigned int i=0; i<2; i++) {
 			  tau = (i==0) ? t1 : t2;
 			  for(unsigned int j=0; j<2; j++) {
 			    part = (j==0) ? part1 : part2;
 			    H = tau+part;
-			    //muonweight = (j==0) ? leading_weight : subleading_weight;
-			    muonweight =1;
-			    plotFill("InvariantMass_of_taumu_with_"+title+tauiso,H.M(),8,40,200,weight*fake*muonweight);
-			    plotFill("InvariantMass_of_taumu_with_"+title+tauiso+"_nofake_weight",H.M(),8,40,200,weight*muonweight);
+			    muonweight = (j==0) ? leading_weight : subleading_weight;
+			    plotFill("InvariantMass_of_taumu_with_"+title+tauiso,H.M(),8,40,200,weight*triggerweight*fake*muonweight*tauSF);
+			    plotFill("InvariantMass_of_taumu_with_"+title+tauiso+"_nofake_weight",H.M(),8,40,200,weight*triggerweight*muonweight*tauSF);
 			  }
 			}
 		      }
@@ -672,21 +750,27 @@ int  main(int argc, char** argv) {
 }  
 
 
-double scaleFactor(double pt, double eta, bool debug) {
+double scaleFactor(double pt, double eta, TH2F* SF,bool debug) {
 
   int ptbin(-1), etabin(-1);
   for(int i=0; i<SF->GetYaxis()->GetNbins(); i++) {
     double binlow = SF->GetYaxis()->GetBinLowEdge(i+1);
     double binwidth = SF->GetYaxis()->GetBinWidth(i+1);
-    if(debug) cout << "binlow== " << binlow << "binhigh= " << binlow+binwidth << "pt== " << pt << endl;
+    //    if(debug) cout << "binlow== " << binlow << "binhigh= " << binlow+binwidth << "pt== " << pt << endl;
     if(pt >= binlow && pt < binlow+binwidth) {
       ptbin = i+1;
       break;
     }
   }
   if(ptbin==-1) {
-    if(debug) cout << "**************** pt = " << pt << "\t doesn't fall within the pt range of the histogram" << endl;
-    ptbin = SF->GetYaxis()->GetNbins();
+    //    if(debug) cout << "**************** pt = " << pt << "\t doesn't fall within the pt range of the histogram" << endl;
+    if(pt < SF->GetYaxis()->GetBinLowEdge(1)) {
+      ptbin = 1;
+    }
+    else {
+      ptbin = SF->GetYaxis()->GetNbins();
+    }
+    //cout << SF->GetName() << pt << "\t" << ptbin << endl;
   }
     
   for(int i=0; i<SF->GetXaxis()->GetNbins(); i++) {
@@ -697,10 +781,10 @@ double scaleFactor(double pt, double eta, bool debug) {
       break;
     }
   }
-  if(etabin==-1) cout <<"**************** eta = " << eta << "\t doesn't fall within the eta range of the histogram"<< endl;
+  //if(etabin==-1) cout <<"**************** eta = " << eta << "\t doesn't fall within the eta range of the histogram"<< endl;
   if(debug) {
-    cout << "ptbin== " << ptbin << "\t" << "etabin== " << etabin << "pt== " << pt << "eta== " << eta << endl;
-    cout << "SF== " << SF->GetBinContent(etabin,ptbin)  << endl;
+    //cout << "ptbin== " << ptbin << "\t" << "etabin== " << etabin << "pt== " << pt << "eta== " << eta << endl;
+    //cout << "SF== " << SF->GetBinContent(etabin,ptbin)  << endl;
   }
   return SF->GetBinContent(etabin,ptbin);
 }
@@ -714,14 +798,18 @@ double fakeweight(double pt,string type)  {
   //  return .0196+.229*TMath::Exp(-.0648*pt);
   if(type =="Muon") {
     //    return .0191 +.230*TMath::Exp(-.0650*pt);///DYLmm//phusics_meeting
-    return .0194+.230*TMath::Exp(-.0650*pt);//prese
+    //    return .0194+.230*TMath::Exp(-.0650*pt);//prese
+    return .0155+.263*TMath::Exp(-.0726*pt);
     //    return .0192+.230*TMath::Exp(-.0651*pt);//old AN
   }
   else if(type == "Electron") {
-    return .0130+.2574*TMath::Exp(-.0691*pt);///DYLee
+    //return .0130+.2574*TMath::Exp(-.0691*pt);///DYLee
+    //    return .0121+.2578*TMath::Exp(-.0686*pt); //new 3rd
+    return .0081+.2480*TMath::Exp(-.0600*pt); 
   }
   else {
-        return .0170+.240*TMath::Exp(-.0667*pt);///DYLem
+    //        return .0170+.240*TMath::Exp(-.0667*pt);///DYLem
+    return .0134+.2621*TMath::Exp(-.0688*pt);
     //    return .0191 +.230*TMath::Exp(-.0650*pt);
   //  return .036+.477*TMath::Exp(-.070*pt);///VL
   }
@@ -776,4 +864,14 @@ float chargemisid( double pt, double eta) {
     }
   }
   return chargemisid_;
+}
+
+pair<double,double> thrust(TLorentzVector m1, TLorentzVector m2, TLorentzVector t1, TLorentzVector t2, TLorentzVector met) {
+  double thrustX = m1.Pt()*TMath::Cos(m1.Phi()) + m2.Pt()*TMath::Cos(m2.Phi()) + t1.Pt()*TMath::Cos(t1.Phi()) + t2.Pt()*TMath::Cos(t2.Phi());
+  double thrustY = m1.Pt()*TMath::Sin(m1.Phi()) + m2.Pt()*TMath::Sin(m2.Phi()) + t1.Pt()*TMath::Sin(t1.Phi()) + t2.Pt()*TMath::Sin(t2.Phi());
+  thrustX /= sqrt(thrustX*thrustX+thrustY*thrustY);
+  thrustY /= sqrt(thrustX*thrustX+thrustY*thrustY);
+  double metalongthrust = thrustX*met.Pt()*TMath::Cos(met.Phi());
+  double metperthrust = thrustY*met.Pt()*TMath::Sin(met.Phi());
+  return pair<double,double>(metalongthrust,metperthrust);
 }
