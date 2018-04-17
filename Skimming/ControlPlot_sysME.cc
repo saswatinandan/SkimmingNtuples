@@ -37,11 +37,14 @@ int  main(int argc, char** argv) {
   ScaleFactor * myScaleFactor_id_muon8 = new ScaleFactor();
   ScaleFactor * myScaleFactor_id_ele23 = new ScaleFactor();
   ScaleFactor * myScaleFactor_id_ele12 = new ScaleFactor();
+  ScaleFactor * myScaleFactor_id_singlemu = new ScaleFactor();
+  ScaleFactor * myScaleFactor_id_singleele = new ScaleFactor();
   myScaleFactor_id_muon23->init_ScaleFactor("Muon_Mu23leg_2016BtoH_eff.root");
   myScaleFactor_id_muon8->init_ScaleFactor("Muon_Mu8leg_2016BtoH_eff.root");
   myScaleFactor_id_ele12->init_ScaleFactor("Electron_Ele12leg_eff.root");
   myScaleFactor_id_ele23->init_ScaleFactor("Electron_Ele23leg_eff.root");
-
+  myScaleFactor_id_singlemu->init_ScaleFactor("Muon_IsoMu24_OR_TkIsoMu24_2016BtoH_eff.root");
+  myScaleFactor_id_singleele->init_ScaleFactor("Electron_Ele25WPTight_eff.root");
 
   for (int f = 1; f < argc; f++) {
     input.push_back(*(argv + f));
@@ -87,14 +90,10 @@ int  main(int argc, char** argv) {
     output += "_controlPlot"+input[0]+".root";
     cout << "\n\n\n OUTPUT NAME IS:    " << output << endl;     //PRINTING THE OUTPUT FILE NAME
     TFile *fout = TFile::Open(output.c_str(), "RECREATE");
-    TH1F* h_musize = new TH1F("musize","musize",10,0,10);
-    TH1F* h_tausize = new TH1F("tausize","tausize",10,0,10);
 
     TH1F* corrpu;
     string Charge[2] = {"opposite_sign","same_sign"};
     string totcharge[2] = {"totCharge==0","totCharge!=0"};
-    string taupartcharge[2] = {"totCharge==0_and_partcharge==0","totCharge==0_and_partcharge_not_equal_to_zero_i.e_signal_region"};
-    string tauCharge_[2] = {"opposite_sign_tau","same_sign_tau"};
     string partCharge_[2] = {"opposite_sign_part","same_sign_part"};
 
     TLorentzVector tau,mu,H,HH,part1,part2,M,ME,t1,t2,T,taugen_,part;
@@ -654,7 +653,9 @@ int  main(int argc, char** argv) {
 		      float sfmu8leg = myScaleFactor_id_muon8->get_ScaleFactor(pt[ipart],fabs(eta[ipart]));
 		      float sfele23leg = myScaleFactor_id_ele23->get_ScaleFactor(pt[jpart],fabs(eta[jpart]));
 		      float sfele12leg = myScaleFactor_id_ele12->get_ScaleFactor(pt[jpart],fabs(eta[jpart]));
-			triggerweight = sfmu23leg*sfele12leg + sfmu8leg*sfele23leg - (sfmu23leg*sfele23leg);
+		      float sfsinglemutri =  myScaleFactor_id_singlemu->get_ScaleFactor(pt[ipart],fabs(eta[ipart]));
+		      float sfsingleeletri =  myScaleFactor_id_singleele->get_ScaleFactor(pt[jpart],fabs(eta[jpart]));
+		      triggerweight = sfmu23leg*sfele12leg + sfmu8leg*sfele23leg - (sfmu23leg*sfele23leg) + sfsinglemutri + sfsingleeletri;
 		    }
 		  }
 		  
@@ -678,19 +679,21 @@ int  main(int argc, char** argv) {
 		      std::string title = partCharge_[partchrg]+"_with_"+totcharge[totchrg];
 		      if(tau1match && tau2match && tau1iso_tau2iso && taupartcharge_[0]) {
 			plotFill("InvariantMass_of_4_particle_with_"+title+tauiso+"_"+systematic,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
+			if(partcharge[0] && (ME.M() <70 || ME.M() > 110) && pfMET >20) 
+                          plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut_excluding_DY"+tauiso+systematic,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF*fake);
 		      }
 		      if(isys ==0) {
 			if(tauvliso =="_in_tau1VLiso_tau2VLiso") {
 			  plotFill("InvariantMass_of_4_particle_with_"+title+"_be4_mass_cut"+tauvliso,HH.M(),9,100,1000,weight*leading_weight*subleading_weight*triggerweight*tauSF*tauSF);
 			  if(tauvliso ==tauiso) continue;
 			  }
-			if(tau1iso_tau2iso && taupartcharge_[0]) {
+			/*			if(tau1iso_tau2iso && taupartcharge_[0]) {
 			  TLorentzVector met;
 			  met.SetPtEtaPhiE(pfMET,0,pfMETPhi,0);
 			  pair<double,double> metcompo = thrust(part1,part2,t1,t2,met);
 			  plotFill("metparallel"+title+tauiso,metcompo.first,10,0,100,weight*triggerweight*tauSF*tauSF*fake);
 			  plotFill("metperpendi"+title+tauiso,metcompo.second,10,0,100,weight*triggerweight*tauSF*tauSF*fake);
-			}
+			  }*/
 			plotFill("InvariantMass_of_tau_pair_with_"+title+tauiso,T.M(),6,50,110,weight*triggerweight*tauSF*tauSF*fake);
 			plotFill("pt_distribution_of_Leading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[itau]),25,0,150,weight*triggerweight*tauSF*fake);
 			plotFill("pt_distribution_of_SubLeading_#tau_with_"+title+tauiso,tauPt->at(vec_tau[jtau]),25,0,150,weight*triggerweight*tauSF*fake);
@@ -734,8 +737,6 @@ int  main(int argc, char** argv) {
     fout->cd();
     corrpu->Scale(1/corrpu->Integral());
     corrpu->Write();
-    h_musize->Write();
-    h_tausize->Write();
     map<string, TH1F*>::const_iterator iMap1 = myMap1->begin();
     map<string, TH1F*>::const_iterator jMap1 = myMap1->end();
     for (; iMap1 != jMap1; ++iMap1) nplot1(iMap1->first)->Write();
